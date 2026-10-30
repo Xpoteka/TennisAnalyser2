@@ -91,3 +91,19 @@ def test_main_survives_a_crashing_section(tmp_path, monkeypatch):
     report = json.loads(out.read_text())
     assert "no level zero" in report["torch"]["error"]
     assert report["parity"]["error"].startswith("skipped")
+
+
+IGPU = {"device": "GPU.0", "name": "Intel(R) Graphics (iGPU)", "type": "Type.INTEGRATED"}
+DGPU = {"device": "GPU.1", "name": "Intel(R) Arc(TM) Pro B70", "type": "Type.DISCRETE"}
+
+
+def test_pick_ov_gpu_skips_the_igpu():
+    assert env_check.pick_ov_gpu([IGPU, DGPU]) == "GPU.1"
+
+
+def test_pick_ov_gpu_never_falls_back_to_the_igpu():
+    assert env_check.pick_ov_gpu([IGPU]) is None
+
+
+def test_pick_ov_gpu_override_wins():
+    assert env_check.pick_ov_gpu([IGPU, DGPU], "GPU.0") == "GPU.0"

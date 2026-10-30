@@ -14,6 +14,10 @@ metrics and pass marks lives in the project's spike plan doc. Results go into
 3. OpenVINO sees a `GPU` device and the same model runs at least 3x faster than on the CPU,
 4. OpenVINO GPU output matches PyTorch CPU output (relative error at most 5%, because OpenVINO GPU defaults to FP16).
 
+OpenVINO lists an integrated GPU as another `GPU.n` device, so the check uses the first **discrete**
+GPU and never falls back to an iGPU. Every GPU it sees is listed under `openvino.gpus`. To force a
+device, pass `-e OV_DEVICE=GPU.1`.
+
 It prints a JSON report plus `GO` or `NO-GO` with reasons, writes the report to
 `/work/out/env_check.json`, and exits 1 on NO-GO. The model has random weights; this measures
 the hardware path, not accuracy.

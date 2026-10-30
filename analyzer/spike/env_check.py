@@ -29,6 +29,9 @@ MIN_GPU_SPEEDUP = 3.0
 # OpenVINO GPU runs in FP16 by default, so compare against FP32 CPU with a loose bound.
 MAX_PARITY_REL_ERROR = 0.05
 
+# Hosts with an iGPU expose it as another OpenVINO "GPU.n" device. Override with e.g. OV_DEVICE=GPU.1.
+OV_DEVICE_ENV = "OV_DEVICE"
+
 RESNET_BATCH = 8
 WARMUP_ITERS = 5
 TIMED_ITERS = 20
@@ -75,6 +78,19 @@ def decide(report: Report) -> tuple[bool, list[str]]:
         reasons.append(f"parity: OpenVINO vs PyTorch relative error {p.get('rel_error')} > {MAX_PARITY_REL_ERROR}")
 
     return not reasons, reasons
+
+
+def pick_ov_gpu(gpus: list[dict[str, str]], override: str | None = None) -> str | None:
+    """The OpenVINO device to benchmark: the override if given, else the first discrete GPU.
+
+    An integrated GPU is never picked automatically; it would make a working dGPU look slow.
+    """
+    if override:
+        return override
+    for gpu in gpus:
+        if "discrete" in gpu["type"].lower():
+            return gpu["device"]
+    return None
 
 
 def time_per_iter(fn: Callable[[], Any], sync: Callable[[], None] = lambda: None) -> float:
@@ -150,17 +166,25 @@ def check_openvino() -> tuple[dict[str, Any], dict[str, Any]]:
 
     core = ov.Core()
     out: dict[str, Any] = {"version": ov.get_version(), "devices": core.available_devices}
-    gpus = [d for d in out["devices"] if d.startswith("GPU")]
-    if not gpus:
+    gpus = [
+        {"device": d, "name": core.get_property(d, "FULL_DEVICE_NAME"), "type": str(core.get_property(d, "DEVICE_TYPE"))}
+        for d in out["devices"]
+        if d.startswith("GPU")
+    ]
+    out["gpus"] = gpus
+    device = pick_ov_gpu(gpus, os.environ.get(OV_DEVICE_ENV))
+    if device is None:
+        out["error"] = f"no discrete GPU among {[g['name'] for g in gpus]}; set {OV_DEVICE_ENV} to choose one"
         return out, {"error": "skipped, no OpenVINO GPU"}
-    out["gpu_name"] = core.get_property(gpus[0], "FULL_DEVICE_NAME")
+    out["gpu_device"] = device
+    out["gpu_name"] = core.get_property(device, "FULL_DEVICE_NAME")
 
     model, example = build_resnet()
     ov_model = ov.convert_model(model, example_input=example)
     x = example.numpy()
 
     cpu = core.compile_model(ov_model, "CPU")
-    gpu = core.compile_model(ov_model, gpus[0], {"PERFORMANCE_HINT": "THROUGHPUT"})
+    gpu = core.compile_model(ov_model, device, {"PERFORMANCE_HINT": "THROUGHPUT"})
     cpu_s = time_per_iter(lambda: cpu(x))
     gpu_s = time_per_iter(lambda: gpu(x))  # synchronous call: returns when results are ready
     out["resnet_cpu_img_s"] = round(RESNET_BATCH / cpu_s, 1)
