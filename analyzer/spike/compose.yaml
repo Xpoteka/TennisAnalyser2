@@ -1,0 +1,12 @@
+# Run on TrueNAS:  RENDER_GID=$(getent group render | cut -d: -f3) SPIKE_DATA=/mnt/<pool>/tennis docker compose up --build
+services:
+  analyzer-spike:
+    build: .
+    image: tennis-analyzer-spike:dev
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:?set RENDER_GID to the host render group id}"
+    volumes:
+      - ${SPIKE_DATA:?set SPIKE_DATA to a dataset path}/samples:/work/samples:ro
+      - ${SPIKE_DATA}/spike-out:/work/out
