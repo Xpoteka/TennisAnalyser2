@@ -20,18 +20,34 @@ the hardware path, not accuracy.
 
 ### Run on TrueNAS
 
-On the TrueNAS shell, with this repo checked out on a dataset:
+CI publishes the image to `ghcr.io/xpoteka/tennis-analyzer-spike` (see "Image releases" below),
+so TrueNAS only pulls it. On the TrueNAS shell, from this folder of the repo:
 
 ```bash
 getent group render                     # note the gid
-cd analyzer/spike
-RENDER_GID=<gid> SPIKE_DATA=/mnt/<pool>/tennis sudo -E docker compose up --build
+RENDER_GID=<gid> SPIKE_DATA=/mnt/<pool>/tennis sudo -E docker compose up
 cat /mnt/<pool>/tennis/spike-out/env_check.json
 ```
 
 `SPIKE_DATA` must contain a `samples/` folder (mounted read-only, used from step 3 on) and gets a
-`spike-out/` folder for results. A TrueNAS custom app with the same `devices`, `group_add` and
-`volumes` settings as `compose.yaml` works too.
+`spike-out/` folder for results. Add `--build` to build the image on TrueNAS instead of pulling it.
+A TrueNAS custom app with the same `image`, `devices`, `group_add` and `volumes` settings as
+`compose.yaml` works too.
+
+If the repository is private, its packages are private too: log in once with
+`sudo docker login ghcr.io -u <github user>` and a personal access token with `read:packages`.
+
+## Image releases
+
+`.github/workflows/analyzer-spike-image.yml` runs the tests and builds the image:
+
+| Trigger | Published tags |
+| --- | --- |
+| Pull request | none (build check only) |
+| Push to `main` touching `analyzer/spike/` | `main`, `sha-<short commit>` |
+| Git tag `v1.2.3` | `1.2.3`, `1.2`, `latest` |
+
+Pick a tag on TrueNAS with `SPIKE_TAG=<tag>`; the default is `main`.
 
 ### Tests
 

@@ -1,8 +1,10 @@
-# Run on TrueNAS:  RENDER_GID=$(getent group render | cut -d: -f3) SPIKE_DATA=/mnt/<pool>/tennis docker compose up --build
+# Run on TrueNAS (pulls the image CI published from main):
+#   RENDER_GID=$(getent group render | cut -d: -f3) SPIKE_DATA=/mnt/<pool>/tennis docker compose up
+# Add --build to build locally instead; SPIKE_TAG picks another published tag (e.g. sha-1a2b3c4, 0.1.0).
 services:
   analyzer-spike:
     build: .
-    image: tennis-analyzer-spike:dev
+    image: ghcr.io/xpoteka/tennis-analyzer-spike:${SPIKE_TAG:-main}
     devices:
       - /dev/dri:/dev/dri
     group_add:
