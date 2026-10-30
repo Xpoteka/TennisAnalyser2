@@ -1,0 +1,2 @@
+# torch + torchvision are installed from the PyTorch XPU index in the Dockerfile.
+openvino==2026.4.1
