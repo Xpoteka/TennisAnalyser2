@@ -12,3 +12,6 @@ services:
     volumes:
       - ${SPIKE_DATA:?set SPIKE_DATA to a dataset path}/samples:/work/samples:ro
       - ${SPIKE_DATA}/spike-out:/work/out
+      - ${SPIKE_DATA}/models:/work/models
+    # Default: the GPU check. For step 3 replace with:
+    # command: ["python", "pose_matrix.py", "--samples", "/work/samples", "--out-dir", "/work/out/pose", "--models-dir", "/work/models", "--max-frames", "600"]
