@@ -92,6 +92,44 @@ Output per run, in `out/pose/`:
 The first run downloads the weights (Ultralytics, OpenMMLab) into `models/` and exports the
 OpenVINO versions there, so later runs start quickly.
 
+## Step 4: ball runs
+
+`ball_run.py` runs one ball tracker on consecutive frames of one clip:
+
+```bash
+python ball_run.py --video /work/samples/rally.mp4 --model wasb --runtime openvino \
+    --start-frame 1200 --max-frames 500 --out-dir /work/out/ball --models-dir /work/models
+```
+
+| Option | Values |
+| --- | --- |
+| `--model` | `wasb` (HRNet, BMVC 2023), `tracknetv2` (WASB authors' re-trained TrackNetV2), `yolo-ball` (YOLO11x "sports ball", baseline) |
+| `--runtime` | `xpu` or `openvino` |
+| `--inp-width` | heatmap model input: `512` (the models' training size), `1024`, `1536`; height follows 16:9 |
+| `--precision` | `fp32` (default) or `fp16` |
+| `--start-frame`, `--max-frames` | the stretch to process, e.g. one labeled run |
+
+`ball_matrix.py` runs seven combinations on every clip and writes `out/ball/matrix.json`.
+
+**Weights (one-time manual download).** The WASB tennis weights are on Google Drive, which
+doesn't allow reliable scripted downloads. Download both files and put them in `<models>/wasb/`
+(on TrueNAS `/mnt/HDDs/tennis/models/wasb/`):
+
+| File | Link |
+| --- | --- |
+| `wasb_tennis_best.pth.tar` | https://drive.google.com/file/d/14AeyIOCQ2UaQmbZLNQJa1H_eSwxUXk7z |
+| `tracknetv2_tennis_best.pth.tar` | https://drive.google.com/file/d/1BCnmvDX-LZpbkk4vlMEXMm-uzCoqJzDx |
+
+The model code is vendored, unchanged, in `third_party/wasb/` (MIT licence, see the file there).
+
+Output per run, in `out/ball/`:
+
+- `<clip>.f<start>.<model>.<runtime>.<width>.<precision>.jsonl`: line 1 is the metadata, then one
+  line per frame: `{"frame", "t_ms", "ball": {"x", "y", "score_raw", "peak"} or null, "candidates": [[x, y, score_raw], ...]}`.
+  `score_raw` is the summed heatmap inside the chosen blob (WASB's own score), not a probability.
+  `ball` is null when no candidate passes the heatmap threshold; nothing is interpolated.
+- `<run>.timing.json`: first-window time (compilation), mean inference ms per frame and FPS.
+
 ### Tests
 
 ```bash

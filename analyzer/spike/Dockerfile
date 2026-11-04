@@ -34,6 +34,7 @@ ENV TORCH_HOME=/work/models/torch \
     MPLCONFIGDIR=/tmp/matplotlib
 
 WORKDIR /work
-COPY env_check.py pose_run.py pose_matrix.py /work/
+COPY *.py /work/
+COPY third_party /work/third_party
 
 CMD ["python", "env_check.py", "--out", "/work/out/env_check.json"]

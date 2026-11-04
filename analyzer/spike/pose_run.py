@@ -259,6 +259,8 @@ def versions() -> dict[str, str]:
 
 def run(cfg: RunConfig) -> Path:
     validate(cfg)
+    if not cfg.video.is_file():
+        raise FileNotFoundError(f"video not found: {cfg.video}")
     from env_check import OV_DEVICE_ENV, pick_ov_gpu
 
     ov_device = None
