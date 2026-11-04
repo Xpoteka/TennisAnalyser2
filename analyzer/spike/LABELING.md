@@ -57,5 +57,10 @@ upload your footage.
 
 `<clip>` is the video's file name without its extension, exactly as it appears in `samples/`.
 
+Also save `/mnt/HDDs/tennis/labels/clips.json` with each clip's camera height, so results are
+reported per height: `{"rally_low": {"height": "low"}, "rally_high": {"height": "high"}}`.
+
+The labels folder must be readable by the app user (568), like `spike-out`.
+
 Don't pre-label with any of the models being tested (YOLO11-Pose, RTMPose, TrackNet, WASB).
 Correcting a model's output biases the labels towards that model's mistakes.

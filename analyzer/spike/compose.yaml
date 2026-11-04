@@ -13,5 +13,10 @@ services:
       - ${SPIKE_DATA:?set SPIKE_DATA to a dataset path}/samples:/work/samples:ro
       - ${SPIKE_DATA}/spike-out:/work/out
       - ${SPIKE_DATA}/models:/work/models
+      - ${SPIKE_DATA}/labels:/work/labels:ro
     # Default: the GPU check. For step 3 replace with:
     # command: ["python", "pose_matrix.py", "--samples", "/work/samples", "--out-dir", "/work/out/pose", "--models-dir", "/work/models", "--max-frames", "600"]
+    # Step 4, only the frames you labeled:
+    # command: ["python", "ball_matrix.py", "--samples", "/work/samples", "--labels", "/work/labels", "--out-dir", "/work/out/ball", "--models-dir", "/work/models"]
+    # Step 6, evaluation (CPU only, needs the runs and the labels):
+    # command: ["python", "evaluate.py", "--runs", "/work/out", "--labels", "/work/labels", "--out", "/work/out/eval"]

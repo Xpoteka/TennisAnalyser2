@@ -109,7 +109,9 @@ python ball_run.py --video /work/samples/rally.mp4 --model wasb --runtime openvi
 | `--precision` | `fp32` (default) or `fp16` |
 | `--start-frame`, `--max-frames` | the stretch to process, e.g. one labeled run |
 
-`ball_matrix.py` runs seven combinations on every clip and writes `out/ball/matrix.json`.
+`ball_matrix.py` runs seven combinations on every clip and writes `out/ball/matrix.json`. Once
+your ball labels exist, add `--labels /work/labels` and it runs exactly the labeled segments of
+each clip instead of `--start-frame`/`--max-frames`.
 
 **Weights (one-time manual download).** The WASB tennis weights are on Google Drive, which
 doesn't allow reliable scripted downloads. Download both files and put them in `<models>/wasb/`
@@ -130,6 +132,42 @@ Output per run, in `out/ball/`:
   `ball` is null when no candidate passes the heatmap threshold; nothing is interpolated.
 - `<run>.timing.json`: first-window time (compilation), mean inference ms per frame and FPS.
 
+## Step 6: evaluation and calibration
+
+Needs the step 3 and 4 runs in `out/pose` and `out/ball`, and your CVAT exports in
+`/mnt/HDDs/tennis/labels` (mounted at `/work/labels`, see `LABELING.md`). Runs on the CPU.
+
+```bash
+python evaluate.py --runs /work/out --labels /work/labels --out /work/out/eval
+```
+
+Optional `labels/clips.json` gives each clip's camera height, and every number is then reported
+per height as well as for all clips: `{"rally_low": {"height": "low"}, "rally_high": {"height": "high"}}`.
+
+What it does, per model combination:
+
+1. **Splits** the labeled frames into a calibration half and a test half, alternating one-second
+   blocks, so near-identical neighbouring frames never land on both sides.
+2. **Scores** every labeled frame. Ball: correct within 12 px on 4K (TrackNet's 4 px at 1280 wide,
+   scaled); a ball on a frame without one is an *invented ball*. Pose: PCK, correct within 5% of the
+   player's size (about 9 cm), only for the keypoints you labeled; near player = lower half of the frame.
+3. **Calibrates** the raw score on the calibration half with isotonic regression (raw score → share
+   correct, only assuming a higher score is never worse).
+4. **Reports** on the test half: precision/recall/F1, the reliability table and ECE, and coverage
+   and precision at calibrated confidence ≥ 0.95, with a 95% lower bound on that precision.
+5. **Checks the pass marks** from the plan per height: ball coverage ≥ 60% and invented balls ≤ 1%;
+   near player wrists and elbows PCK ≥ 90% and coverage ≥ 80%; XPU vs OpenVINO keypoints ≤ 2 px
+   apart on average (on keypoints both score ≥ 0.5).
+
+Output in `out/eval/`: `REPORT.md` (the tables), `report.json` (everything, including per-keypoint
+PCK and which labeled frames no run covered), and `calibration.<ball|pose>.<combo>.json`, the fitted
+mapping that later becomes part of the stage. A combination whose calibration half has no wrong (or
+no right) answers gets no mapping, so nothing of it is shown as fact.
+
+Ball segments are found from your labels: labeled frames less than 1.5 s apart belong to one
+segment, and frames inside a segment without a point count as "no ball". If that guesses a
+segment wrong, give it explicitly: `--segments rally=1200-1699,4000-4499`.
+
 ### Tests
 
 ```bash
@@ -137,9 +175,10 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-The tests cover the GO/NO-GO logic and report writing and need no GPU.
+The tests cover the GO/NO-GO logic, the label readers, scoring and calibration, and need no GPU.
 
 ## Versions
 
-`openvino` is pinned in `requirements.txt`. `torch`/`torchvision` come unpinned from the PyTorch
-XPU index until the first GO run; pin them to the versions recorded in `env_check.json` then.
+`openvino`, `ultralytics`, `rtmlib` and `scikit-learn` (calibration) are pinned in `requirements.txt`.
+`torch`/`torchvision` come unpinned from the PyTorch XPU index until the first GO run; pin them to
+the versions recorded in `env_check.json` then.

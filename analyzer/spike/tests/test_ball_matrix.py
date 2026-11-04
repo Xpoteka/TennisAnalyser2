@@ -27,3 +27,14 @@ def test_matrix_keeps_going_after_a_failure(tmp_path, monkeypatch):
     assert code == 1
     assert len(results) == len(ball_matrix.COMBOS)
     assert [r["ok"] for r in results].count(False) == 2
+
+
+def test_labels_pick_the_frames_to_run(tmp_path):
+    from test_labels import CVAT_VIDEO_XML
+
+    labels = tmp_path / "labels"
+    labels.mkdir()
+    (labels / "rally.ball.xml").write_text(CVAT_VIDEO_XML)
+    rally, other = tmp_path / "rally.mp4", tmp_path / "other.mp4"
+    assert ball_matrix.ranges([rally, other], labels, 0, None) == [(rally, 100, 5), (rally, 900, 1)]
+    assert ball_matrix.ranges([rally], None, 7, 50) == [(rally, 7, 50)]
