@@ -14,6 +14,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libze-intel-gpu1 libze1 intel-opencl-icd clinfo pciutils \
       python3 python3-venv \
+      libgl1 libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
@@ -26,7 +27,13 @@ RUN pip install torch torchvision --index-url ${TORCH_INDEX_URL}
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
+# Model weights and caches live in /work/models (a volume), so they survive container restarts
+# and the app can run as a non-root user without a home directory.
+ENV TORCH_HOME=/work/models/torch \
+    YOLO_CONFIG_DIR=/work/models/ultralytics \
+    MPLCONFIGDIR=/tmp/matplotlib
+
 WORKDIR /work
-COPY env_check.py /work/
+COPY env_check.py pose_run.py pose_matrix.py /work/
 
 CMD ["python", "env_check.py", "--out", "/work/out/env_check.json"]

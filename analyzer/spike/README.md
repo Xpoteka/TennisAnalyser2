@@ -53,6 +53,45 @@ If the repository is private, its packages are private too: log in once with
 
 Pick a tag on TrueNAS with `SPIKE_TAG=<tag>`; the default is `main`.
 
+### Known-good TrueNAS setup
+
+As a custom app: enable **Use all GPUs** (TrueNAS refuses `/dev/dri` as a manual device). The app
+runs as `apps` (568:568), so `spike-out/` and `models/` must be writable by that user.
+
+## Step 3: pose runs
+
+`pose_run.py` runs one pose model on one clip and writes per-frame JSON:
+
+```bash
+python pose_run.py --video /work/samples/rally.mp4 --model yolo11-pose --size x --runtime openvino \
+    --out-dir /work/out/pose --models-dir /work/models --max-frames 600
+```
+
+| Option | Values |
+| --- | --- |
+| `--model` | `yolo11-pose` (one-stage), `rtmpose` (YOLO11x finds people, RTMPose body7 puts keypoints on each) |
+| `--size` | `m`, `l`, `x` for YOLO11-Pose; `m`, `x` for RTMPose |
+| `--runtime` | `xpu` or `openvino`; RTMPose is ONNX-only, so OpenVINO only |
+| `--imgsz` | detector input size, default 1280 (4K frames are scaled down to this) |
+| `--stride`, `--max-frames` | sample fewer frames for quick runs |
+
+`pose_matrix.py` runs all six candidates on every video in `samples/` and writes `matrix.json`
+with the FPS of each, or the error if one fails. In the TrueNAS app, set the command to:
+
+```
+python pose_matrix.py --samples /work/samples --out-dir /work/out/pose --models-dir /work/models --max-frames 600
+```
+
+Output per run, in `out/pose/`:
+
+- `<clip>.<model>-<size>.<runtime>.<imgsz>.jsonl`: line 1 is the run metadata, then one line per
+  frame: `{"frame", "t_ms", "players": [{"box", "box_score_raw", "keypoints": [[x, y, score_raw] x17]}]}`.
+  A frame without people has `"players": []`. Scores are raw model outputs, not calibrated (step 6).
+- `<run>.timing.json`: first-frame time (compilation), then mean decode and inference ms per frame and FPS.
+
+The first run downloads the weights (Ultralytics, OpenMMLab) into `models/` and exports the
+OpenVINO versions there, so later runs start quickly.
+
 ### Tests
 
 ```bash
